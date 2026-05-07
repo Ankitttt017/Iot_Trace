@@ -13,9 +13,6 @@ const ricoOrganisationItems = [
 const ricoPartOperationItems = [
   { label: "Part Master", to: "/parts", icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", countKey: "parts" },
   { label: "Operation Master", to: "/operations", icon: "M9 5H7a2 2 0 00-2 2v12h14V7a2 2 0 00-2-2h-2m-6 0a3 3 0 016 0m-6 0h6m-7 7h8m-8 4h5", exact: true },
-  { label: "Operation Logs", to: "/operations?view=logs", icon: "M8 7V3m8 4V3M5 11h14M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2" },
-  { label: "Assign Operation", to: "/operations?view=assign", icon: "M9 12l2 2 4-4m5 2a8 8 0 11-16 0 8 8 0 0116 0" },
-  { label: "Partwise Production", to: "/parts?view=production", icon: "M4 19V5m5 14V9m5 10V7m5 12v-8" },
 ];
 
 const traceabilityItems = [

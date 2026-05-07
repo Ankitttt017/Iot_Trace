@@ -1,0 +1,69 @@
+X [ERROR] Expected "}" but found "proxy"
+
+    vite.config.js:8:4:
+      8 │     proxy: {
+        │     ~~~~~
+        ╵     }
+
+[31mfailed to load config from C:\Users\IOT1\Desktop\integrated\frontend\vite.config.js[39m
+[2m5:13:03 PM[22m [31m[1m[vite][22m[39m Build failed with 1 error:
+vite.config.js:8:4: ERROR: Expected "}" but found "proxy"
+[2m5:13:03 PM[22m [31m[1m[vite][22m[39m server restart failed
+X [ERROR] Expected "}" but found ":"
+
+    vite.config.js:8:9:
+      8 │     proxy: {
+        │          ^
+        ╵          }
+
+[31mfailed to load config from C:\Users\IOT1\Desktop\integrated\frontend\vite.config.js[39m
+[2m5:13:04 PM[22m [31m[1m[vite][22m[39m Build failed with 1 error:
+vite.config.js:8:9: ERROR: Expected "}" but found ":"
+[2m5:13:04 PM[22m [31m[1m[vite][22m[39m server restart failed
+X [ERROR] Expected "}" but found ":"
+
+    vite.config.js:8:9:
+      8 │     proxy: {
+        │          ^
+        ╵          }
+
+[31mfailed to load config from C:\Users\IOT1\Desktop\integrated\frontend\vite.config.js[39m
+[2m5:13:05 PM[22m [31m[1m[vite][22m[39m Build failed with 1 error:
+vite.config.js:8:9: ERROR: Expected "}" but found ":"
+[2m5:13:05 PM[22m [31m[1m[vite][22m[39m server restart failed
+X [ERROR] Expected "}" but found "proxy"
+
+    vite.config.js:8:4:
+      8 │     proxy: {
+        │     ~~~~~
+        ╵     }
+
+[31mfailed to load config from C:\Users\IOT1\Desktop\integrated\frontend\vite.config.js[39m
+[2m5:13:09 PM[22m [31m[1m[vite][22m[39m Build failed with 1 error:
+vite.config.js:8:4: ERROR: Expected "}" but found "proxy"
+[2m5:13:09 PM[22m [31m[1m[vite][22m[39m server restart failed
+X [ERROR] Expected "}" but found "proxy"
+
+    vite.config.js:8:4:
+      8 │     proxy: {
+        │     ~~~~~
+        ╵     }
+
+[31mfailed to load config from C:\Users\IOT1\Desktop\integrated\frontend\vite.config.js[39m
+[2m5:13:13 PM[22m [31m[1m[vite][22m[39m Build failed with 1 error:
+vite.config.js:8:4: ERROR: Expected "}" but found "proxy"
+[2m5:13:13 PM[22m [31m[1m[vite][22m[39m server restart failed
+X [ERROR] Expected "}" but found "proxy"
+
+    vite.config.js:9:4:
+      9 │     proxy: {
+        │     ~~~~~
+        ╵     }
+
+[31mfailed to load config from C:\Users\IOT1\Desktop\integrated\frontend\vite.config.js[39m
+[2m5:13:31 PM[22m [31m[1m[vite][22m[39m Build failed with 1 error:
+vite.config.js:9:4: ERROR: Expected "}" but found "proxy"
+[2m5:13:31 PM[22m [31m[1m[vite][22m[39m server restart failed
+[31mfailed to load config from C:\Users\IOT1\Desktop\integrated\frontend\vite.config.js[39m
+[2m5:16:16 PM[22m [31m[1m[vite][22m[39m a is not defined
+[2m5:16:16 PM[22m [31m[1m[vite][22m[39m server restart failed
