@@ -1,0 +1,10 @@
+# Root .gitignore
+node_modules/
+backend/node_modules/
+backend/traceability/node_modules/
+frontend/node_modules/
+*.sqlite
+*.env
+data/
+dist/
+.env

@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "start": "cd traceability && npm start",
+    "dev": "cd traceability && npm run dev"
+  },
+  "dependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

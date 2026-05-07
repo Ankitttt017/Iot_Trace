@@ -1,0 +1,26 @@
+
+> backend@1.0.0 start
+> node server.js
+
+◇ injected env (22) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+[Startup] authenticate...
+TCP Server Running on Port 5001
+[Startup] authenticate complete
+[Startup] sequelize sync...
+[Startup] sequelize sync complete
+[Startup] ensureIotSchema...
+[Startup] ensureIotSchema complete
+[Startup] resetAllMachineLocks...
+[Startup] resetAllMachineLocks complete
+[Startup] resetAllScannerConnectionStates...
+[Startup] resetAllScannerConnectionStates complete
+[Startup] ensureDefaultAdminUser...
+[Startup] ensureDefaultAdminUser complete
+[Startup] ensureDefaultShifts...
+[Startup] ensureDefaultShifts complete
+Server running on port 4000
+[AlarmService] Alarm monitor started (interval: 30s)
+[Socket] Client connected    | id: 4zJhxtENP2Y2D-wwAAAE | transport: websocket
+[Socket] Client connected    | id: H5hUrm61mp5OC7G5AAAF | transport: websocket
+[Socket] Client disconnected | id: H5hUrm61mp5OC7G5AAAF | reason: client namespace disconnect
+[Socket] Client disconnected | id: 4zJhxtENP2Y2D-wwAAAE | reason: client namespace disconnect

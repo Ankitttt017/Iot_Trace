@@ -1,0 +1,19 @@
+{
+  "name": "rico-part-master-backend",
+  "version": "1.0.0",
+  "description": "RICO Part Master Backend API",
+  "main": "server.js",
+  "scripts": {
+    "start": "cd ..\\traceability && npm start",
+    "dev": "cd ..\\traceability && npm run dev"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "mssql": "^11.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
