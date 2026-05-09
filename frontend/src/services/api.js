@@ -18,7 +18,21 @@ export const uploadSheet    = (id, type, d) => api.post(`/parts/${id}/sheets/${t
 export const getConfig      = (id)      => api.get(`/parts/${id}/configuration`);
 export const updateConfig   = (id, d)   => api.put(`/parts/${id}/configuration`, d);
 export const getStats       = (params)  => api.get('/stats', { params });
-export const getMachines    = ()        => api.get('/machines');
+export const getMachines    = (params)  => api.get('/machines', { params });
+export const createMachine  = (data)    => api.post('/machines', data);
+export const updateMachine  = (id, d)   => api.put(`/machines/${id}`, d);
+export const deleteMachine  = (id)      => api.delete(`/machines/${id}`);
+export const getMachineOperations = (id, params) => api.get(`/machines/${id}/operations`, { params });
+export const assignMachineOperation = (id, data) => api.put(`/machines/${id}/operation`, data);
 export const getMachineStatusHistory = (id) => api.get(`/machines/${id}/status-history`);
+export const getLines       = (params)  => api.get('/lines', { params });
+export const getLineOperations = ()     => api.get('/lines/operations/list');
+export const createLine     = (data)    => api.post('/lines', data);
+export const updateLine     = (id, d)   => api.put(`/lines/${id}`, d);
+export const deleteLine     = (id)      => api.delete(`/lines/${id}`);
+export const getLineMachines = (id)     => api.get(`/lines/${id}/machines`);
+export const createLineMachine = (id, data) => api.post(`/lines/${id}/machines`, data);
+export const updateLineMachine = (lineId, machineId, data) => api.put(`/lines/${lineId}/machines/${machineId}`, data);
+export const removeLineMachine = (lineId, machineId, params) => api.delete(`/lines/${lineId}/machines/${machineId}`, { params });
 
 export default api;

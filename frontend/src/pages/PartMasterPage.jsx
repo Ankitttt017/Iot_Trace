@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import Navbar from "../components/common/Navbar";
-import Sidebar from "../components/common/Sidebar";
+import AppLayout from "../components/common/AppLayout";
+import Pagination from "../components/common/Pagination";
 import { getPlants, getParts } from "../services/api";
 import { useI18n } from "../context/I18nContext";
-import { useSidebar } from "../context/SidebarContext";
+
+const ALLOWED_PLANT_CODES = ["1002", "1008"];
+const PAGE_SIZE = 50;
 
 const DEFAULT_PLANTS = [
   { id: "fallback-bawal", name: "Bawal Plant", code: "1008", location: "Bawal, Haryana" },
-  { id: "fallback-pathredi", name: "Pathredi Plant", code: "1010", location: "Pathredi, Haryana" },
-  { id: "fallback-chennai", name: "Chennai Plant", code: "1012", location: "Chennai, Tamil Nadu" },
   { id: "fallback-gurugram", name: "Gurugram Plant", code: "1002", location: "Gurugram, Haryana" },
 ];
 
@@ -20,13 +20,15 @@ const normalizePlants = (rows = []) => {
     map.set(code, {
       id: plant.id || code,
       code,
-      name: code === "1002" ? "Gurugram Plant" : plant.name || `${code} Plant`,
-      location: code === "1002" ? "Gurugram, Haryana" : plant.location || "",
+      name: code === "1002" ? "Gurugram Plant" : code === "1008" ? "Bawal Plant" : plant.name || `${code} Plant`,
+      location: code === "1002" ? "Gurugram, Haryana" : code === "1008" ? "Bawal, Haryana" : plant.location || "",
     });
     return map;
   }, new Map());
 
-  return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name));
+  return Array.from(merged.values())
+    .filter((plant) => ALLOWED_PLANT_CODES.includes(plant.code))
+    .sort((a, b) => ALLOWED_PLANT_CODES.indexOf(a.code) - ALLOWED_PLANT_CODES.indexOf(b.code));
 };
 
 const PartIllustration = () => (
@@ -133,16 +135,11 @@ const PartCard = ({ part, t }) => {
 
 const PartMasterPage = ({ onLogout, currentUser }) => {
   const { t } = useI18n();
-  const { collapsed } = useSidebar();
   const [searchParams, setSearchParams] = useSearchParams();
-  const GROUP_FILTERS = [
-    { label: t("all"), value: "" },
-    { label: t("finished"), value: "FINISHED" },
-    { label: t("semiFinished"), value: "SEMFINISH" },
-  ];
   const [plants, setPlants] = useState([]);
   const [selectedPlant, setSelectedPlant] = useState(null);
   const [parts, setParts] = useState([]);
+  const [partGroups, setPartGroups] = useState([]);
   const [stats, setStats] = useState({ part_types: 0, linked: 0, unlinked: 0 });
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState(searchParams.get("search") || "");
@@ -152,6 +149,7 @@ const PartMasterPage = ({ onLogout, currentUser }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
+  const [page, setPage] = useState(1);
 
   // Load plants on mount
   useEffect(() => {
@@ -162,8 +160,9 @@ const PartMasterPage = ({ onLogout, currentUser }) => {
         if (plantList.length > 0) setSelectedPlant(plantList[0]);
       })
       .catch(() => {
-        setPlants(DEFAULT_PLANTS);
-        setSelectedPlant(DEFAULT_PLANTS[0]);
+        const plantList = normalizePlants(DEFAULT_PLANTS);
+        setPlants(plantList);
+        setSelectedPlant(plantList[0]);
         setError(t("loadPlantsError"));
       });
   }, [t]);
@@ -173,15 +172,16 @@ const PartMasterPage = ({ onLogout, currentUser }) => {
     if (!selectedPlant) return;
     setLoading(true);
     setError("");
-    getParts({ plant: selectedPlant.code, search, group: groupFilter, limit: 200 })
+    getParts({ plant: selectedPlant.code, search, group: groupFilter, page, limit: PAGE_SIZE })
       .then(r => {
         setParts(r.data.data);
         setStats(r.data.stats || {});
+        setPartGroups(Array.isArray(r.data.groups) ? r.data.groups : []);
         setTotal(r.data.total || 0);
       })
       .catch(() => setError(t("loadPartsError")))
       .finally(() => setLoading(false));
-  }, [selectedPlant, search, groupFilter, t]);
+  }, [selectedPlant, search, groupFilter, page, t]);
 
   useEffect(() => {
     const timer = setTimeout(fetchParts, search ? 300 : 0);
@@ -195,6 +195,7 @@ const PartMasterPage = ({ onLogout, currentUser }) => {
 
   const handleSearchChange = (value) => {
     setSearch(value);
+    setPage(1);
     if (value) {
       setSearchParams({ search: value });
     } else {
@@ -204,6 +205,8 @@ const PartMasterPage = ({ onLogout, currentUser }) => {
 
   const handleSelectPlant = (plant) => {
     setSelectedPlant(plant);
+    setGroupFilter("");
+    setPage(1);
     setDropdownOpen(false);
     setPlantSearch("");
   };
@@ -217,17 +220,17 @@ const PartMasterPage = ({ onLogout, currentUser }) => {
     );
   });
 
-  const selectedGroup = GROUP_FILTERS.find(f => f.value === groupFilter) || GROUP_FILTERS[0];
+  const groupOptions = [
+    { label: t("all"), value: "" },
+    ...partGroups.map((group) => ({
+      label: `${group.value}${group.total ? ` (${group.total})` : ""}`,
+      value: group.value,
+    })),
+  ];
+  const selectedGroup = groupOptions.find(f => f.value === groupFilter) || groupOptions[0];
 
   return (
-    <div className="min-h-screen bg-[#f7f7fa] app-page">
-      <Navbar onLogout={onLogout} currentUser={currentUser} />
-      <Sidebar />
-
-      <main className={`pt-[94px] transition-all duration-300 ease-in-out ${
-        collapsed ? "lg:pl-[72px]" : "lg:pl-72"
-      }`}>
-        <div className="w-full p-4 sm:p-6">
+    <AppLayout onLogout={onLogout} currentUser={currentUser}>
 
           {/* Breadcrumb */}
           <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -357,11 +360,11 @@ const PartMasterPage = ({ onLogout, currentUser }) => {
                   </button>
                   {groupDropdownOpen && (
                     <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-30 overflow-hidden py-1">
-                      {GROUP_FILTERS.map(filter => (
+                      {groupOptions.map(filter => (
                         <button
                           key={filter.label}
                           type="button"
-                          onClick={() => { setGroupFilter(filter.value); setGroupDropdownOpen(false); }}
+                          onClick={() => { setGroupFilter(filter.value); setPage(1); setGroupDropdownOpen(false); }}
                           className={`w-full flex items-center justify-between px-3 py-2.5 text-sm transition-colors ${groupFilter === filter.value ? "app-selected font-semibold" : "text-gray-700 hover:bg-gray-50"
                             }`}
                         >
@@ -432,8 +435,15 @@ const PartMasterPage = ({ onLogout, currentUser }) => {
               ))}
             </div>
           )}
-        </div>
-      </main>
+          {!loading && total > PAGE_SIZE && (
+            <Pagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={total}
+              label="parts"
+              onPageChange={setPage}
+            />
+          )}
 
       {(dropdownOpen || groupDropdownOpen) && (
         <div
@@ -441,7 +451,7 @@ const PartMasterPage = ({ onLogout, currentUser }) => {
           onClick={() => { setDropdownOpen(false); setGroupDropdownOpen(false); }}
         />
       )}
-    </div>
+    </AppLayout>
   );
 };
 

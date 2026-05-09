@@ -7,6 +7,7 @@ import { useSidebar } from "../../context/SidebarContext";
 const iconClass = "h-5 w-5";
 
 const ricoOrganisationItems = [
+  { label: "Lines", to: "/lines", icon: "M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18", countKey: "lines" },
   { label: "Machines", to: "/machines", icon: "M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-9 4h4m-7 8h10a3 3 0 003-3v-5H4v5a3 3 0 003 3z", countKey: "machines" },
 ];
 
@@ -123,17 +124,13 @@ const Sidebar = () => {
   const formattedCounts = useMemo(() => counts, [counts]);
 
   return (
-    <aside className={`app-sidebar fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-white/8 lg:flex transition-all duration-300 ease-in-out ${collapsed ? "w-[72px]" : "w-72"}`}>
+    <aside className={`app-sidebar fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-white/10 lg:flex transition-all duration-300 ease-in-out ${collapsed ? "w-[72px]" : "w-72"}`}>
 
-      {/* ✅ HEADER — Logo Fixed */}
-      <div className={`flex items-center border-b border-white/8 ${collapsed ? "justify-center px-3 py-3" : "justify-between px-4 py-3"}`}>
+      {/* Header */}
+      <div className={`flex h-[78px] items-center border-b border-white/10 ${collapsed ? "justify-center px-3" : "justify-between px-4"}`}>
         {!collapsed && (
-          <div className="flex items-center justify-center rounded-xl border border-white/10 bg-white shadow-lg"
-            style={{ height: '64px', minWidth: '180px', maxWidth: '200px', padding: '8px 20px', overflow: 'hidden' }}>
-            <BrandLogo
-              compact
-              style={{ height: '52px', width: 'auto', maxWidth: '180px', objectFit: 'contain', display: 'block' }}
-            />
+          <div className="flex h-14 w-[200px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white px-5 shadow-lg shadow-black/10">
+            <BrandLogo compact />
           </div>
         )}
 

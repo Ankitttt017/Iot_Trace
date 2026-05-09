@@ -1,16 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Navbar from "../../components/common/Navbar";
-import Sidebar from "../../components/common/Sidebar";
-import { getMachines } from "../../services/api";
+import AppLayout from "../../components/common/AppLayout";
+import Pagination from "../../components/common/Pagination";
+import { getMachines, getPlants } from "../../services/api";
 import MachineCard from "./components/MachineCard";
-import { useSidebar } from "../../context/SidebarContext";
+
+const PAGE_SIZE = 50;
 
 // ── Static filter data ────────────────────────────────────────────────────────
-const PLANTS = [
+const DEFAULT_PLANTS = [
   { label: "Gurugram Plant", value: "1002" },
-  { label: "Bawal Plant",    value: "1001" },
-  { label: "Pathredi Plant", value: "1003" },
-  { label: "Chennai Plant",  value: "1004" },
+  { label: "Bawal Plant", value: "1008" },
 ];
 
 const DIVISIONS = [
@@ -157,10 +156,11 @@ const Select = ({ label, value, onChange, options }) => (
 
 // ── Main component ────────────────────────────────────────────────────────────
 const MachineDashboard = ({ onLogout, currentUser }) => {
-  const { collapsed } = useSidebar();
   const [machines, setMachines]         = useState([]);
+  const [plants, setPlants]             = useState(DEFAULT_PLANTS);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState("");
+  const [page, setPage]                 = useState(1);
 
   // Filters
   const [plant, setPlant]               = useState("1002");
@@ -169,11 +169,31 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
   const [search, setSearch]             = useState("");
   const [machineType, setMachineType]   = useState("");
 
+  useEffect(() => {
+    getPlants()
+      .then((response) => {
+        const rows = response.data?.data || [];
+        const merged = [...rows, ...DEFAULT_PLANTS].reduce((map, plantRow) => {
+          const code = String(plantRow?.code || plantRow?.value || "").trim();
+          if (!code || map.has(code)) return map;
+          map.set(code, {
+            label: plantRow?.label || plantRow?.name || `${code} Plant`,
+            value: code,
+          });
+          return map;
+        }, new Map());
+        const nextPlants = Array.from(merged.values())
+          .filter((plantOption) => ["1002", "1008"].includes(plantOption.value));
+        setPlants(nextPlants.length ? nextPlants : DEFAULT_PLANTS);
+      })
+      .catch(() => setPlants(DEFAULT_PLANTS));
+  }, []);
+
   const fetchMachines = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     setError("");
     try {
-      const response = await getMachines();
+      const response = await getMachines({ plant });
       const payload = Array.isArray(response.data) ? response.data : response.data?.data;
       setMachines(Array.isArray(payload) ? payload : []);
     } catch {
@@ -181,7 +201,7 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [plant]);
 
   useEffect(() => {
     fetchMachines();
@@ -193,6 +213,7 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
   const handleDivisionChange = (val) => {
     setDivision(val);
     setLine("");
+    setPage(1);
   };
 
   const lineOptions = LINES_BY_DIVISION[division] || LINES_BY_DIVISION[""];
@@ -210,13 +231,19 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return enriched.filter(m => {
+      if (plant && m.plant_code && m.plant_code !== plant) return false;
       if (division && m._division !== division) return false;
       if (line && m._lineCode !== line)         return false;
       if (q && !m.name.toLowerCase().includes(q)) return false;
       if (!matchesMachineType(m.name, machineType)) return false;
       return true;
     });
-  }, [enriched, division, line, search, machineType]);
+  }, [enriched, plant, division, line, search, machineType]);
+
+  const pagedMachines = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  );
 
   const stats = useMemo(() => enriched.reduce(
     (a, m) => {
@@ -231,14 +258,7 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
   ), [enriched]);
 
   return (
-    <div className="min-h-screen app-page">
-      <Navbar onLogout={onLogout} currentUser={currentUser} />
-      <Sidebar />
-
-      <main className={`pt-[94px] transition-all duration-300 ease-in-out ${
-        collapsed ? "lg:pl-[72px]" : "lg:pl-72"
-      }`}>
-        <div className="p-4 sm:p-6">
+    <AppLayout onLogout={onLogout} currentUser={currentUser}>
 
           {/* Breadcrumb */}
           <div className="mb-5 flex items-center gap-2 text-sm">
@@ -261,8 +281,8 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
               <Select
                 label="Select Plant"
                 value={plant}
-                onChange={setPlant}
-                options={PLANTS}
+                onChange={(value) => { setPlant(value); setPage(1); }}
+                options={plants}
               />
               <Select
                 label="Select Division"
@@ -273,7 +293,7 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
               <Select
                 label="Select Lines"
                 value={line}
-                onChange={setLine}
+                onChange={(value) => { setLine(value); setPage(1); }}
                 options={lineOptions}
               />
 
@@ -286,7 +306,7 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
                   </svg>
                   <input
                     value={search}
-                    onChange={e => setSearch(e.target.value)}
+                    onChange={e => { setSearch(e.target.value); setPage(1); }}
                     placeholder="Search Machine..."
                     className="h-11 w-52 rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 shadow-sm transition focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-50"
                   />
@@ -296,7 +316,7 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
               <Select
                 label="Select Machine Type"
                 value={machineType}
-                onChange={setMachineType}
+                onChange={(value) => { setMachineType(value); setPage(1); }}
                 options={MACHINE_TYPES}
               />
             </div>
@@ -348,7 +368,7 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filtered.map(machine => (
+              {pagedMachines.map(machine => (
                 <MachineCard
                   key={machine.id}
                   machine={machine}
@@ -359,9 +379,16 @@ const MachineDashboard = ({ onLogout, currentUser }) => {
             </div>
           )}
 
-        </div>
-      </main>
-    </div>
+          {!loading && filtered.length > PAGE_SIZE && (
+            <Pagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={filtered.length}
+              label="machines"
+              onPageChange={setPage}
+            />
+          )}
+    </AppLayout>
   );
 };
 

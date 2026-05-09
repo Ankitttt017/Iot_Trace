@@ -7,9 +7,9 @@ import { useSidebar } from "../context/SidebarContext";
 const PLANT_NAMES = {
   "1002": "Gurugram Plant",
   "1008": "Bawal Plant",
-  "1010": "Pathredi Plant",
-  "1012": "Chennai Plant",
 };
+
+const ALLOWED_PLANT_CODES = ["1002", "1008"];
 
 const normalizePlant = (plant) => {
   const code = String(plant?.code || plant?.plant_code || "").trim();
@@ -140,12 +140,15 @@ const OperationsMasterPage = ({ onLogout, currentUser }) => {
   useEffect(() => {
     getPlants()
       .then((response) => {
-        const list = (response.data.data || []).map(normalizePlant).filter((plant) => plant.code);
+        const list = (response.data.data || [])
+          .map(normalizePlant)
+          .filter((plant) => ALLOWED_PLANT_CODES.includes(plant.code))
+          .sort((a, b) => ALLOWED_PLANT_CODES.indexOf(a.code) - ALLOWED_PLANT_CODES.indexOf(b.code));
         setPlants(list);
         setSelectedPlant(list[0]?.code || "");
       })
       .catch(() => {
-        const fallback = ["1002", "1008", "1010", "1012"].map((code) => ({ id: code, code, name: PLANT_NAMES[code] }));
+        const fallback = ALLOWED_PLANT_CODES.map((code) => ({ id: code, code, name: PLANT_NAMES[code] }));
         setPlants(fallback);
         setSelectedPlant(fallback[0].code);
       });

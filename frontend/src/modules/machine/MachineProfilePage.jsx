@@ -1,8 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import Sidebar from "../../components/common/Sidebar";
-import { getMachineStatusHistory, getMachines } from "../../services/api";
+import {
+  assignMachineOperation,
+  getMachineOperations,
+  getMachineStatusHistory,
+  getMachines,
+} from "../../services/api";
 import { useSidebar } from "../../context/SidebarContext";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -461,6 +466,7 @@ const LiveStateGraph = ({ history = [] }) => {
 
 const TABS = [
   { id: "live",   label: "Live Status",   icon: "M13 10V3L4 14h7v7l9-11h-7z" },
+  { id: "operation", label: "Operation Setup", icon: "M9 5H7a2 2 0 00-2 2v12h14V7a2 2 0 00-2-2h-2m-6 0a3 3 0 016 0m-6 0h6m-7 7h8m-8 4h5" },
   { id: "config", label: "Configuration", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" },
   { id: "stats",  label: "Statistics",    icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
   { id: "down",   label: "Downtime",      icon: "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
@@ -557,6 +563,161 @@ const InfoTile = ({ label, value, valueClass, icon, iconBg }) => (
     </div>
   </div>
 );
+
+const OperationSetupTab = ({ machine }) => {
+  const [operations, setOperations] = useState([]);
+  const [current, setCurrent] = useState(null);
+  const [selected, setSelected] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const loadOperations = useCallback(() => {
+    if (!machine?.id) return;
+    setLoading(true);
+    setMessage("");
+    getMachineOperations(machine.id, { plant: machine?.plant_code || "1002" })
+      .then((res) => {
+        const rows = Array.isArray(res.data?.data) ? res.data.data : [];
+        const active = res.data?.current || null;
+        setOperations(rows);
+        setCurrent(active);
+        setSelected(active?.operation_no || rows[0]?.operation_no || "");
+      })
+      .catch(() => {
+        setOperations([]);
+        setCurrent(null);
+        setMessage("Unable to load operations for this machine.");
+      })
+      .finally(() => setLoading(false));
+  }, [machine?.id, machine?.plant_code]);
+
+  useEffect(() => {
+    loadOperations();
+  }, [loadOperations]);
+
+  const selectedOperation = operations.find((operation) => operation.operation_no === selected);
+
+  const save = async () => {
+    if (!selected) {
+      setMessage("Please select an operation before saving.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+    try {
+      await assignMachineOperation(machine.id, {
+        operation_no: selected,
+        part_code: selectedOperation?.part_code || current?.part_code || machine?.part_code || null,
+        status: machine?.status || "IDLE",
+      });
+      setMessage("Operation saved for this machine.");
+      loadOperations();
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Unable to save operation.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="mb-5">
+        <h3 className="text-base font-bold text-gray-900">Operation Setup</h3>
+        <p className="mt-1 text-xs text-gray-400">
+          Select the operation currently mapped to this machine. The saved operation is recorded in machine status history for traceability.
+        </p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Machine</p>
+              <p className="mt-1 truncate text-sm font-extrabold text-slate-900">{safe(machine?.name, "Unknown Machine")}</p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Current Part</p>
+              <p className="mt-1 truncate text-sm font-extrabold text-blue-700">{safe(machine?.part, "No part assigned")}</p>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-sm font-semibold text-slate-400">
+              Loading operations...
+            </div>
+          ) : operations.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center">
+              <p className="text-sm font-bold text-slate-500">No operations found</p>
+              <p className="mt-1 text-xs text-slate-400">Assign a part to this machine first, or create operations in Operation Master.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Select Operation</span>
+                <select
+                  value={selected}
+                  onChange={(event) => setSelected(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-50"
+                >
+                  {operations.map((operation) => (
+                    <option key={`${operation.part_code}-${operation.operation_no}-${operation.id}`} value={operation.operation_no}>
+                      {operation.operation_no} - {operation.operation_name || "Operation"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {selectedOperation && (
+                <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-teal-700">Selected Operation</p>
+                  <p className="mt-1 text-sm font-extrabold text-slate-900">{selectedOperation.operation_name || selectedOperation.operation_no}</p>
+                  <p className="mt-1 text-xs font-medium text-slate-500">
+                    Part: {selectedOperation.part_code || "Not linked"} {selectedOperation.part_name ? `- ${selectedOperation.part_name}` : ""}
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={save}
+                disabled={saving}
+                className="rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-teal-700 disabled:opacity-60"
+              >
+                {saving ? "Saving..." : "Save Operation"}
+              </button>
+            </div>
+          )}
+
+          {message && (
+            <p className={`mt-4 rounded-lg px-3 py-2 text-sm font-semibold ${message.includes("saved") ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+              {message}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-gray-100 bg-slate-50/70 p-4">
+          <h4 className="text-sm font-extrabold text-slate-900">Current Assignment</h4>
+          <div className="mt-4 space-y-3">
+            <div className="rounded-lg bg-white px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Operation</p>
+              <p className="mt-1 text-sm font-extrabold text-slate-900">{current?.operation_no || "Not assigned"}</p>
+            </div>
+            <div className="rounded-lg bg-white px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Part Code</p>
+              <p className="mt-1 text-sm font-extrabold text-slate-900">{current?.part_code || machine?.part_code || "Not linked"}</p>
+            </div>
+            <div className="rounded-lg bg-white px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Last Updated</p>
+              <p className="mt-1 text-sm font-extrabold text-slate-900">{current?.updated_at ? new Date(current.updated_at).toLocaleString() : "No history"}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ── Configuration Tab ─────────────────────────────────────────────────────────
 
@@ -1577,6 +1738,7 @@ const MachineProfilePage = ({ onLogout, currentUser }) => {
 
   const renderTab = () => {
     if (activeTab === "live")   return <LiveStatusTab machine={machine} />;
+    if (activeTab === "operation") return <OperationSetupTab machine={machine} />;
     if (activeTab === "config") return <ConfigTab machine={machine} />;
     if (activeTab === "stats")  return <StatsTab />;
     if (activeTab === "down")   return <DowntimeTab machine={machine} />;

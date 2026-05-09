@@ -8,7 +8,7 @@ const BrandLogo = ({ compact = false, light = false, className = "" }) => {
         <img
           src={ricoLogo}
           alt="RICO Auto Industries Limited"
-          className="h-45 w-auto object-contain"
+          className="h-35 w-auto object-contain"
           style={{ filter: light ? "brightness(0) invert(1)" : "none" }}
         />
       </div>

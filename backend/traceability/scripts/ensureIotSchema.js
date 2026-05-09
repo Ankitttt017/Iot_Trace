@@ -17,16 +17,46 @@ function splitSqlBatches(sqlText) {
 }
 
 async function ensureIotSchema() {
-  const schemaSql = fs.readFileSync(schemaPath, "utf8");
-  const pool = new sqlServer.ConnectionPool(getSqlServerConfig());
-  await pool.connect();
+  // Skip if schema file doesn't exist
+  if (!fs.existsSync(schemaPath)) {
+    console.log("[ensureIotSchema] Schema file not found, skipping.");
+    return;
+  }
 
+  let pool;
   try {
-    for (const batch of splitSqlBatches(schemaSql)) {
-      await pool.request().batch(batch);
+    pool = new sqlServer.ConnectionPool({
+      ...getSqlServerConfig(),
+      connectionTimeout: 10000,  // 10s timeout instead of hanging forever
+      requestTimeout: 10000,
+    });
+
+    await pool.connect();
+
+    const schemaSql = fs.readFileSync(schemaPath, "utf8");
+    const batches = splitSqlBatches(schemaSql);
+
+    for (const batch of batches) {
+      try {
+        await pool.request().batch(batch);
+      } catch (batchErr) {
+        // Ignore "already exists" errors — table/index already created
+        if (
+          batchErr.message.includes("already exists") ||
+          batchErr.message.includes("There is already an object")
+        ) {
+          continue;
+        }
+        console.warn("[ensureIotSchema] Batch warning:", batchErr.message);
+      }
     }
+
+    console.log("[ensureIotSchema] Schema check complete.");
+  } catch (err) {
+    // Don't crash the server if schema check fails
+    console.warn("[ensureIotSchema] Skipped due to error:", err.message);
   } finally {
-    await pool.close();
+    if (pool) await pool.close();
   }
 }
 

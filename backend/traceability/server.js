@@ -36,6 +36,7 @@ const authRoutes = require("./routes/authRoutes");
 const v1Routes = require("./routes/v1");
 const iotPartRoutes = require("../rico-iot/src/routes/partRoutes");
 const iotMachineRoutes = require("../rico-iot/src/routes/machine");
+const iotLineRoutes    = require("../rico-iot/src/routes/lineRoutes");
 const Machine = require("./models/Machine");
 const Scanner = require("./models/Scanner");
 const User = require("./models/User");
@@ -95,6 +96,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api", iotPartRoutes);
 app.use("/api", iotMachineRoutes);
+app.use("/api/lines", iotLineRoutes);
 app.use("/api/v1", v1Routes);
 // Upgrade 5 — Audit Log route (Admin only, JWT auth required via v1Routes middleware)
 app.get("/api/audit", getAuditLog);

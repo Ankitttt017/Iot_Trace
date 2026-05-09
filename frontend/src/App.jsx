@@ -6,6 +6,7 @@ import { SidebarProvider } from "./context/SidebarContext";
 
 // ─── Rico IoT Pages ────────────────────────────────────────────────
 import LoginPage from "./pages/LoginPage";
+import LineMasterPage from "./pages/LineMasterPage";        // ← NEW
 import PartMasterPage from "./pages/PartMasterPage";
 import PartProfilePage from "./pages/PartProfilePage";
 import OperationsMasterPage from "./pages/OperationsMasterPage";
@@ -90,6 +91,15 @@ const App = () => {
                 RICO IOT ROUTES
             ══════════════════════════════════════ */}
             <Route
+              path="/lines"                                  
+              element={
+                <LineMasterPage
+                  onLogout={handleLogout}
+                  currentUser={currentUser}
+                />
+              }
+            />
+            <Route
               path="/parts"
               element={
                 <PartMasterPage
@@ -141,8 +151,6 @@ const App = () => {
 
             {/* ══════════════════════════════════════
                 TRACEABILITY ROUTES
-                All wrapped in TraceabilityLayout
-                (uses Traceability's own auth/context)
             ══════════════════════════════════════ */}
             <Route
               path="/traceability/*"

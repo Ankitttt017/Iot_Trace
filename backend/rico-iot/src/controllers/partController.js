@@ -7,9 +7,11 @@ const TABLES = {
   plants: 'iot_plants',
   materials: 'iot_materials',
   parts: 'iot_parts',
+  partPlants: 'iot_part_plants',
   operations: 'iot_operations',
   machines: 'iot_machines',
   machineStatus: 'iot_machine_status',
+  machineOperations: 'iot_machine_operations',
   processFlow: 'iot_process_flow_diagrams',
   inspection: 'iot_inspection_sheets',
   controlPlan: 'iot_control_plan_charts',
@@ -37,31 +39,70 @@ const getPartsByPlant = async (req, res) => {
     const params = [];
 
     let whereClauses = [];
+    const typeWhereClauses = [];
+    const typeParams = [];
 
     if (plant) {
-      whereClauses.push('p.plant_code = ?');
+      const clause = 'COALESCE(pp.plant_code, p.plant_code) = ?';
+      whereClauses.push(clause);
+      typeWhereClauses.push(clause);
       params.push(plant);
+      typeParams.push(plant);
     }
     if (search) {
-      whereClauses.push('(LOWER(p.description) LIKE ? OR p.material_code LIKE ?)');
-      params.push(`%${search.toLowerCase()}%`, `%${search}%`);
+      const clause = '(LOWER(p.description) LIKE ? OR p.material_code LIKE ?)';
+      const values = [`%${search.toLowerCase()}%`, `%${search}%`];
+      whereClauses.push(clause);
+      typeWhereClauses.push(clause);
+      params.push(...values);
+      typeParams.push(...values);
     }
     if (group) {
-      whereClauses.push('p.material_group = ?');
+      whereClauses.push('COALESCE(pp.material_group, p.material_group) = ?');
       params.push(group);
     }
     if (status) {
-      whereClauses.push('UPPER(COALESCE(p.status, ?)) = ?');
-      params.push('ENABLED', String(status).toUpperCase());
+      const clause = 'UPPER(COALESCE(p.status, ?)) = ?';
+      const values = ['ENABLED', String(status).toUpperCase()];
+      whereClauses.push(clause);
+      typeWhereClauses.push(clause);
+      params.push(...values);
+      typeParams.push(...values);
     }
 
     const where = whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : '';
+    const typeWhere = typeWhereClauses.length ? 'WHERE ' + typeWhereClauses.join(' AND ') : '';
 
     // Fetch parts
     const { rows } = await db.query(
-      `SELECT p.*, 
+      `SELECT
+        p.id,
+        p.sl_no,
+        p.material_code,
+        p.description,
+        COALESCE(pp.plant_code, p.plant_code) AS plant_code,
+        COALESCE(pp.storage_location, p.storage_location) AS storage_location,
+        COALESCE(pp.unit_of_measure, p.unit_of_measure) AS unit_of_measure,
+        COALESCE(pp.material_group, p.material_group) AS material_group,
+        p.cycle_time_sec,
+        p.box_quantity,
+        p.customer,
+        p.opn_number,
+        p.final_opn_code,
+        p.manufacturing_type,
+        p.total_produced,
+        p.status,
+        p.traceability_status,
+        p.version,
+        p.registered_on,
+        p.registered_by,
+        p.revision_date,
+        p.revised_by,
+        p.created_at,
         (SELECT COUNT(*) FROM ${TABLES.operations} o WHERE o.part_code = p.material_code) AS operation_count
-       FROM ${TABLES.parts} p ${where}
+       FROM ${TABLES.parts} p
+       LEFT JOIN ${TABLES.partPlants} pp ON pp.part_code = p.material_code
+       ${where}
        ORDER BY p.sl_no ASC
        OFFSET ? ROWS FETCH NEXT ? ROWS ONLY`,
       [...params, offset, parseInt(limit)]
@@ -69,16 +110,20 @@ const getPartsByPlant = async (req, res) => {
 
     // Count totals
     const { rows: countRows } = await db.query(
-      `SELECT COUNT(*) as total FROM ${TABLES.parts} p ${where}`, params
+      `SELECT COUNT(*) as total
+       FROM ${TABLES.parts} p
+       LEFT JOIN ${TABLES.partPlants} pp ON pp.part_code = p.material_code
+       ${where}`, params
     );
 
     // Stats
     const { rows: statsRows } = await db.query(
       `SELECT 
-         COUNT(DISTINCT material_group) as part_types,
+         COUNT(DISTINCT COALESCE(pp.material_group, p.material_group)) as part_types,
          SUM(CASE WHEN COALESCE(operation_counts.operation_count, 0) > 0 THEN 1 ELSE 0 END) as linked,
          SUM(CASE WHEN COALESCE(operation_counts.operation_count, 0) = 0 THEN 1 ELSE 0 END) as unlinked
        FROM ${TABLES.parts} p
+       LEFT JOIN ${TABLES.partPlants} pp ON pp.part_code = p.material_code
        LEFT JOIN (
          SELECT part_code, COUNT(*) AS operation_count
          FROM ${TABLES.operations}
@@ -88,11 +133,26 @@ const getPartsByPlant = async (req, res) => {
       params
     );
 
+    const { rows: groupRows } = await db.query(
+      `SELECT
+         COALESCE(pp.material_group, p.material_group) AS value,
+         COUNT(*) AS total
+       FROM ${TABLES.parts} p
+       LEFT JOIN ${TABLES.partPlants} pp ON pp.part_code = p.material_code
+       ${typeWhere}
+       GROUP BY COALESCE(pp.material_group, p.material_group)
+       HAVING COALESCE(pp.material_group, p.material_group) IS NOT NULL
+          AND COALESCE(pp.material_group, p.material_group) <> ''
+       ORDER BY value`,
+      typeParams
+    );
+
     res.json({
       success: true,
       data: rows,
       total: countRows[0]?.total || 0,
       stats: statsRows[0] || { part_types: 0, linked: 0, unlinked: 0 },
+      groups: groupRows,
       page: parseInt(page),
       limit: parseInt(limit),
     });
@@ -170,6 +230,18 @@ const getPartOperations = async (req, res) => {
            AND NULLIF(TRIM(operation_no), '') IS NOT NULL
          GROUP BY part_code, operation_no
        ),
+       assigned_operations AS (
+         SELECT
+           part_code,
+           operation_no,
+           MIN(id) AS assignment_id,
+           MAX(updated_at) AS last_seen
+         FROM ${TABLES.machineOperations}
+         WHERE part_code = ?
+           AND is_active = 1
+           AND NULLIF(TRIM(operation_no), '') IS NOT NULL
+         GROUP BY part_code, operation_no
+       ),
        deduped_operations AS (
          SELECT
            MIN(id) AS id,
@@ -184,29 +256,41 @@ const getPartOperations = async (req, res) => {
          WHERE part_code = ?
          GROUP BY part_code, sr_no, name, type, label, rework
        ),
+       operation_keys AS (
+         SELECT
+           o.part_code,
+           COALESCE(o.label, CAST(o.sr_no AS VARCHAR(50)), CONCAT('OP-', o.id)) AS operation_no,
+           o.id AS source_id,
+           o.created_at AS last_seen
+         FROM deduped_operations o
+         UNION
+         SELECT part_code, operation_no, status_id, last_seen FROM status_operations
+         UNION
+         SELECT part_code, operation_no, assignment_id, last_seen FROM assigned_operations
+       ),
        ranked_operations AS (
          SELECT
-           COALESCE(o.id, so.status_id) AS id,
-           so.part_code,
+           COALESCE(o.id, ok.source_id) AS id,
+           ok.part_code,
            o.sr_no,
-           COALESCE(o.name, CONCAT('Operation ', so.operation_no)) AS name,
+           COALESCE(o.name, CONCAT('Operation ', ok.operation_no)) AS name,
            COALESCE(o.type, 'RECORDED') AS type,
-           COALESCE(o.label, so.operation_no) AS label,
+           COALESCE(o.label, ok.operation_no) AS label,
            COALESCE(o.rework, 'No rework assigned') AS rework,
-           so.operation_no,
-           so.last_seen,
+           ok.operation_no,
+           ok.last_seen,
            o.created_at,
            ROW_NUMBER() OVER (
-             PARTITION BY so.operation_no
+             PARTITION BY ok.operation_no
              ORDER BY CASE WHEN o.sr_no IS NULL THEN 1 ELSE 0 END, o.sr_no, o.id
            ) AS rn
-         FROM status_operations so
+         FROM operation_keys ok
          LEFT JOIN deduped_operations o
-           ON o.part_code = so.part_code
+           ON o.part_code = ok.part_code
           AND (
-            UPPER(TRIM(so.operation_no)) = UPPER(TRIM(o.label))
-            OR UPPER(TRIM(so.operation_no)) = UPPER(TRIM(CAST(o.sr_no AS VARCHAR(50))))
-            OR REPLACE(REPLACE(UPPER(TRIM(so.operation_no)), 'OP-', ''), 'OP', '') =
+            UPPER(TRIM(ok.operation_no)) = UPPER(TRIM(o.label))
+            OR UPPER(TRIM(ok.operation_no)) = UPPER(TRIM(CAST(o.sr_no AS VARCHAR(50))))
+            OR REPLACE(REPLACE(UPPER(TRIM(ok.operation_no)), 'OP-', ''), 'OP', '') =
                REPLACE(REPLACE(UPPER(TRIM(COALESCE(o.label, CAST(o.sr_no AS VARCHAR(50))))), 'OP-', ''), 'OP', '')
           )
        ),
@@ -226,14 +310,24 @@ const getPartOperations = async (req, res) => {
            COALESCE(m.name, m.machine_code) AS name,
            ms.status,
            ms.updated_at AS lastSeen
-         FROM ${TABLES.machineStatus} ms
-         LEFT JOIN ${TABLES.machines} m ON m.id = ms.machine_id
+         FROM ${TABLES.machineOperations} mo
+         LEFT JOIN ${TABLES.machines} m ON m.id = mo.machine_id
+         OUTER APPLY (
+           SELECT TOP 1 status, updated_at
+           FROM ${TABLES.machineStatus}
+           WHERE machine_id = mo.machine_id
+           ORDER BY
+             CASE WHEN updated_at IS NULL THEN 1 ELSE 0 END,
+             updated_at DESC,
+             id DESC
+         ) ms
          WHERE m.id IS NOT NULL
-           AND ms.part_code = o.part_code
+           AND mo.is_active = 1
+           AND mo.part_code = o.part_code
            AND (
-             UPPER(TRIM(ms.operation_no)) = UPPER(TRIM(o.operation_no))
-             OR UPPER(TRIM(ms.operation_no)) = UPPER(TRIM(o.label))
-             OR REPLACE(REPLACE(UPPER(TRIM(ms.operation_no)), 'OP-', ''), 'OP', '') =
+             UPPER(TRIM(mo.operation_no)) = UPPER(TRIM(o.operation_no))
+             OR UPPER(TRIM(mo.operation_no)) = UPPER(TRIM(o.label))
+             OR REPLACE(REPLACE(UPPER(TRIM(mo.operation_no)), 'OP-', ''), 'OP', '') =
                 REPLACE(REPLACE(UPPER(TRIM(o.label)), 'OP-', ''), 'OP', '')
            )
          FOR JSON PATH
@@ -246,7 +340,7 @@ const getPartOperations = async (req, res) => {
          CASE WHEN o.label IS NULL THEN 1 ELSE 0 END,
          o.label,
          o.id`,
-      [req.params.id, req.params.id]
+      [req.params.id, req.params.id, req.params.id]
     );
     res.json({
       success: true,
@@ -271,7 +365,10 @@ const getOperationMaster = async (req, res) => {
     const whereClauses = [];
 
     if (plant) {
-      whereClauses.push('p.plant_code = ?');
+      whereClauses.push(`EXISTS (
+        SELECT 1 FROM ${TABLES.partPlants} pp
+        WHERE pp.part_code = p.material_code AND pp.plant_code = ?
+      )`);
       params.push(plant);
     }
     if (part) {
@@ -336,14 +433,18 @@ const getOperationMaster = async (req, res) => {
          d.rework,
          d.part_code,
          p.description AS linked_part,
-         p.plant_code,
+         COALESCE(pp.plant_code, p.plant_code) AS plant_code,
          d.created_at AS modified_at,
          COALESCE(machine_counts.machine_count, 0) AS machine_count
        FROM filtered_operations d
        LEFT JOIN ${TABLES.parts} p ON p.material_code = d.part_code
+       LEFT JOIN ${TABLES.partPlants} pp
+         ON pp.part_code = p.material_code
+        AND ${plant ? 'pp.plant_code = ?' : '1 = 1'}
        LEFT JOIN (
          SELECT part_code, operation_no, COUNT(DISTINCT machine_id) AS machine_count
-         FROM ${TABLES.machineStatus}
+         FROM ${TABLES.machineOperations}
+         WHERE is_active = 1
          GROUP BY part_code, operation_no
        ) machine_counts
          ON machine_counts.part_code = d.part_code
@@ -360,7 +461,7 @@ const getOperationMaster = async (req, res) => {
          d.operation_id,
          d.id
        OFFSET ? ROWS FETCH NEXT ? ROWS ONLY`,
-      [...params, offset, pageSize]
+      [...params, ...(plant ? [plant] : []), offset, pageSize]
     );
 
     res.json({
@@ -638,23 +739,28 @@ const getStats = async (req, res) => {
   try {
     const { plant } = req.query;
     const params = plant ? [plant] : [];
-    const where = plant ? 'WHERE plant_code = ?' : '';
+    const partWhere = plant ? 'WHERE COALESCE(pp.plant_code, p.plant_code) = ?' : '';
+    const materialWhere = plant ? 'WHERE plant_code = ?' : '';
 
     const { rows: partStats } = await db.query(
       `SELECT 
          COUNT(*) as total_parts,
-         COUNT(DISTINCT material_group) as material_groups,
+         COUNT(DISTINCT COALESCE(pp.material_group, p.material_group)) as material_groups,
          COUNT(DISTINCT customer) as customers,
          COUNT(DISTINCT manufacturing_type) as mfg_types
-       FROM ${TABLES.parts} ${where}`, params
+       FROM ${TABLES.parts} p
+       LEFT JOIN ${TABLES.partPlants} pp ON pp.part_code = p.material_code
+       ${partWhere}`, params
     );
     const { rows: matStats } = await db.query(
-      `SELECT COUNT(*) as total_materials FROM ${TABLES.materials} ${where}`, params
+      `SELECT COUNT(*) as total_materials FROM ${TABLES.materials} ${materialWhere}`, params
     );
     const { rows: mfgBreakdown } = await db.query(
-      `SELECT manufacturing_type, COUNT(*) as count 
-       FROM ${TABLES.parts} ${where} 
-       GROUP BY manufacturing_type ORDER BY count DESC`, params
+      `SELECT p.manufacturing_type, COUNT(*) as count 
+       FROM ${TABLES.parts} p
+       LEFT JOIN ${TABLES.partPlants} pp ON pp.part_code = p.material_code
+       ${partWhere}
+       GROUP BY p.manufacturing_type ORDER BY count DESC`, params
     );
 
     res.json({
