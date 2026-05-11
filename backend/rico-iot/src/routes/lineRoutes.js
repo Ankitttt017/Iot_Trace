@@ -11,10 +11,12 @@ const {
   deleteLine,
   addLineMachine,
   updateLineMachine,
-  removeLineMachine
+  removeLineMachine,
+  getRawMasterData
 } = require('../controllers/lineController');
 
 router.get('/',              getAllLines);
+router.get('/raw-master-data', getRawMasterData);
 router.get('/operations/list', getLineOperations);
 router.get('/:id',           getLineById);
 router.get('/:id/machines',  getLinesMachines);

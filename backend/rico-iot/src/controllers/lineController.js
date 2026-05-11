@@ -40,6 +40,7 @@ const getAllLines = async (req, res) => {
       SELECT 
         lm.line_id, lm.line_code, lm.line_name,
         lm.division, lm.plant, lm.plant_code, lm.is_active,
+        lm.part_code, lm.part_name, lm.customer_name,
         COUNT(DISTINCT m.id) AS total_machines,
         COUNT(DISTINCT pm.Sl_No) AS total_parts
       FROM dbo.line_master lm
@@ -47,7 +48,8 @@ const getAllLines = async (req, res) => {
       LEFT JOIN dbo.parts_master pm ON pm.line_id = lm.line_id
       ${where}
       GROUP BY lm.line_id, lm.line_code, lm.line_name,
-               lm.division, lm.plant, lm.plant_code, lm.is_active
+               lm.division, lm.plant, lm.plant_code, lm.is_active,
+               lm.part_code, lm.part_name, lm.customer_name
       ORDER BY lm.line_id
     `, params);
     res.json({ success: true, data: rows });
@@ -74,7 +76,7 @@ const getLinesMachines = async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT id, machine_code, name, category, asset, cost_center, line_id,
-              operation_no, operation_name
+              operation_no, operation_name, ip_address, part_name
        FROM dbo.iot_machines 
        WHERE line_id = ?
        ORDER BY name`,
@@ -104,16 +106,16 @@ const getLinesParts = async (req, res) => {
 
 const createLine = async (req, res) => {
   try {
-    const { line_code, line_name, plant = 'Gurugram Plant', plant_code = '1002', division, description } = req.body;
+    const { line_code, line_name, plant = 'Gurugram Plant', plant_code = '1002', division, description, part_code, part_name, customer_name } = req.body;
     if (!String(line_code || '').trim() || !String(line_name || '').trim()) {
       return res.status(400).json({ success: false, message: 'Line code and name are required' });
     }
     const { rows } = await db.run(
       `INSERT INTO dbo.line_master 
-        (line_code, line_name, plant, plant_code, division, description)
+        (line_code, line_name, plant, plant_code, division, description, part_code, part_name, customer_name)
        OUTPUT INSERTED.line_id
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [line_code, line_name, plant, plant_code, division, description || null]
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [line_code, line_name, plant, plant_code, division, description || null, part_code || null, part_name || null, customer_name || null]
     );
     res.json({ success: true, line_id: rows[0]?.line_id });
   } catch (err) {
@@ -123,15 +125,15 @@ const createLine = async (req, res) => {
 
 const updateLine = async (req, res) => {
   try {
-    const allowed = ['line_code', 'line_name', 'plant', 'plant_code', 'division', 'description', 'is_active'];
+    const allowed = ['line_code', 'line_name', 'plant', 'plant_code', 'division', 'description', 'is_active', 'part_code', 'part_name', 'customer_name'];
     const updates = allowed.filter((field) => Object.prototype.hasOwnProperty.call(req.body, field));
     if (!updates.length) return res.status(400).json({ success: false, message: 'No line fields supplied' });
 
     await db.run(
       `UPDATE dbo.line_master
-       SET ${updates.map((field) => `${field} = ?`).join(', ')},
-           updated_at = GETDATE()
-       WHERE line_id = ?`,
+       SET ${ updates.map((field) => `${field} = ?`).join(', ') },
+      updated_at = GETDATE()
+       WHERE line_id = ? `,
       [...updates.map((field) => req.body[field] === '' ? null : req.body[field]), req.params.id]
     );
     res.json({ success: true });
@@ -146,8 +148,8 @@ const getLineOperations = async (_req, res) => {
 
 const deleteLine = async (req, res) => {
   try {
-    await db.run(`UPDATE dbo.iot_machines SET line_id = NULL WHERE line_id = ?`, [req.params.id]);
-    await db.run(`DELETE FROM dbo.line_master WHERE line_id = ?`, [req.params.id]);
+    await db.run(`UPDATE dbo.iot_machines SET line_id = NULL WHERE line_id = ? `, [req.params.id]);
+    await db.run(`DELETE FROM dbo.line_master WHERE line_id = ? `, [req.params.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -156,20 +158,20 @@ const deleteLine = async (req, res) => {
 
 const addLineMachine = async (req, res) => {
   try {
-    const { machine_code, name, category, asset, cost_center } = req.body;
+    const { machine_code, name, category, asset, cost_center, ip_address, port, part_name } = req.body;
     const operation = normalizeOperation(req.body.operation_no);
     if (!String(machine_code || '').trim() || !String(name || '').trim()) {
       return res.status(400).json({ success: false, message: 'Machine code and name are required' });
     }
 
-    const { rows: lineRows } = await db.query(`SELECT plant_code FROM dbo.line_master WHERE line_id = ?`, [req.params.id]);
+    const { rows: lineRows } = await db.query(`SELECT plant_code FROM dbo.line_master WHERE line_id = ? `, [req.params.id]);
     if (!lineRows.length) return res.status(404).json({ success: false, message: 'Line not found' });
 
     const { rows } = await db.run(
       `INSERT INTO dbo.iot_machines
-        (machine_code, name, category, plant_code, line_id, asset, cost_center, operation_no, operation_name)
+      (machine_code, name, category, plant_code, line_id, asset, cost_center, operation_no, operation_name, ip_address, port, part_name)
        OUTPUT INSERTED.id
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         String(machine_code).trim(),
         String(name).trim(),
@@ -180,6 +182,9 @@ const addLineMachine = async (req, res) => {
         cost_center || null,
         operation.operation_no,
         operation.operation_name,
+        ip_address || null,
+        port || null,
+        part_name || null,
       ]
     );
 
@@ -191,7 +196,7 @@ const addLineMachine = async (req, res) => {
 
 const updateLineMachine = async (req, res) => {
   try {
-    const allowed = ['machine_code', 'name', 'category', 'cost_center', 'asset', 'line_id', 'operation_no'];
+    const allowed = ['machine_code', 'name', 'category', 'cost_center', 'asset', 'line_id', 'operation_no', 'ip_address', 'part_name'];
     const updates = allowed.filter((field) => Object.prototype.hasOwnProperty.call(req.body, field));
     if (!updates.length) return res.status(400).json({ success: false, message: 'No machine fields supplied' });
 
@@ -205,8 +210,8 @@ const updateLineMachine = async (req, res) => {
 
     await db.run(
       `UPDATE dbo.iot_machines
-       SET ${updates.map((field) => `${field} = ?`).join(', ')}
-       WHERE id = ?`,
+       SET ${ updates.map((field) => `${field} = ?`).join(', ') }
+       WHERE id = ? `,
       [...updates.map((field) => normalizedBody[field] === '' ? null : normalizedBody[field]), req.params.machineId]
     );
     res.json({ success: true });
@@ -219,12 +224,97 @@ const removeLineMachine = async (req, res) => {
   try {
     const mode = req.query.mode || 'detach';
     if (mode === 'delete') {
-      await db.run(`DELETE FROM dbo.iot_machine_status WHERE machine_id = ?`, [req.params.machineId]);
-      await db.run(`DELETE FROM dbo.iot_machines WHERE id = ?`, [req.params.machineId]);
+      await db.run(`DELETE FROM dbo.iot_machine_status WHERE machine_id = ? `, [req.params.machineId]);
+      await db.run(`DELETE FROM dbo.iot_machines WHERE id = ? `, [req.params.machineId]);
     } else {
-      await db.run(`UPDATE dbo.iot_machines SET line_id = NULL WHERE id = ?`, [req.params.machineId]);
+      await db.run(`UPDATE dbo.iot_machines SET line_id = NULL WHERE id = ? `, [req.params.machineId]);
     }
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const getRawMasterData = async (req, res) => {
+  try {
+    const { plant, type, division } = req.query;
+    const isBawal = plant === '1008' || (plant || '').includes('Bawal');
+
+    if (type === 'parts') {
+      // parts_master_raw has data for 1002, check for bawal table
+      if (isBawal) {
+        try {
+          const { rows } = await db.query(
+            `SELECT DISTINCT material AS material_code, material_description AS description, material_group FROM dbo.iot_parts_master_bawal_raw WHERE material IS NOT NULL ORDER BY material_description`
+          );
+          return res.json({ success: true, data: rows });
+        } catch(e) {
+          // fallback to parts_master_raw with plant filter
+        }
+      }
+      const { rows } = await db.query(
+        `SELECT DISTINCT material AS material_code, material_description AS description, material_group, customer, manufacturing_type
+         FROM dbo.iot_parts_master_raw
+         WHERE material IS NOT NULL
+         ORDER BY material_description`
+      );
+      return res.json({ success: true, data: rows });
+    }
+
+    if (type === 'machines') {
+      if (isBawal) {
+        // Bawal: iot_machine_master_bawal_raw - columns: equipment, description, division, cost_center, asset
+        let query = `SELECT DISTINCT equipment AS machine_code, description AS name, division AS category, cost_center, asset
+                     FROM dbo.iot_machine_master_bawal_raw
+                     WHERE equipment IS NOT NULL AND description IS NOT NULL`;
+        if (division) {
+          const divLower = division.toLowerCase();
+          const divFilter = divLower.includes('hpdc') ? 'HPDC' : 'MCS';
+          query += ` AND (plant_section LIKE '%${divFilter}%' OR functional_loc LIKE '%${divFilter}%')`;
+        }
+        query += ` ORDER BY description`;
+        const { rows } = await db.query(query);
+        return res.json({ success: true, data: rows });
+      } else {
+        // Gurugram 1002: iot_machines table
+        let divFilter = '';
+        if (division) {
+          const divLower = division.toLowerCase();
+          if (divLower.includes('hpdc')) {
+            divFilter = ` AND (category LIKE '%HPDC%' OR category LIKE '%Die Cast%' OR cost_center LIKE '%110C%')`;
+          } else if (divLower.includes('machine')) {
+            divFilter = ` AND (category LIKE '%Machine%' OR category LIKE '%MCS%' OR cost_center LIKE '%110M%')`;
+          }
+        }
+        const query = `
+          SELECT machine_code, name, category, cost_center, asset
+          FROM (
+            SELECT machine_code, name, category, cost_center, asset,
+                   ROW_NUMBER() OVER (PARTITION BY name ORDER BY id) AS rn
+            FROM dbo.iot_machines
+            WHERE plant_code = '1002' AND name IS NOT NULL${divFilter}
+          ) t WHERE rn = 1
+          ORDER BY name
+        `;
+        const { rows } = await db.query(query);
+        return res.json({ success: true, data: rows });
+      }
+    }
+
+    if (type === 'operations') {
+      // Get from iot_operations table
+      const { rows } = await db.query(
+        `SELECT DISTINCT COALESCE(label, CAST(sr_no AS VARCHAR(50))) AS operation_no, name AS operation_name
+         FROM dbo.iot_operations
+         WHERE name IS NOT NULL
+         ORDER BY operation_no`
+      );
+      if (rows.length > 0) return res.json({ success: true, data: rows });
+      // fallback to OPERATION_MASTER constant
+      return res.json({ success: true, data: OPERATION_MASTER });
+    }
+
+    return res.json({ success: true, data: [] });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -243,4 +333,5 @@ module.exports = {
   addLineMachine,
   updateLineMachine,
   removeLineMachine,
+  getRawMasterData
 };

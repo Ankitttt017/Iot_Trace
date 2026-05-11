@@ -7,11 +7,8 @@ import { useSidebar } from "../../context/SidebarContext";
 const iconClass = "h-5 w-5";
 
 const ricoOrganisationItems = [
-  { label: "Lines", to: "/lines", icon: "M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18", countKey: "lines" },
-  { label: "Machines", to: "/machines", icon: "M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-9 4h4m-7 8h10a3 3 0 003-3v-5H4v5a3 3 0 003 3z", countKey: "machines" },
-];
-
-const ricoPartOperationItems = [
+  { label: "Line Master", to: "/lines", icon: "M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18", countKey: "lines" },
+  { label: "Machine Master", to: "/machines", icon: "M4 7h16M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2m-9 4h4m-7 8h10a3 3 0 003-3v-5H4v5a3 3 0 003 3z", countKey: "machines" },
   { label: "Part Master", to: "/parts", icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", countKey: "parts" },
   { label: "Operation Master", to: "/operations", icon: "M9 5H7a2 2 0 00-2 2v12h14V7a2 2 0 00-2-2h-2m-6 0a3 3 0 016 0m-6 0h6m-7 7h8m-8 4h5", exact: true },
 ];
@@ -149,7 +146,6 @@ const Sidebar = () => {
       {/* Nav */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-3">
         <Section title="Organisation" items={ricoOrganisationItems} counts={formattedCounts} collapsed={collapsed} />
-        <Section title="Parts & Operations" items={ricoPartOperationItems} counts={formattedCounts} collapsed={collapsed} />
         {!collapsed && <div className="mx-5 border-t border-white/10" />}
         {!collapsed && <p className="px-6 text-[9px] font-black uppercase tracking-[0.2em] text-teal-500/70">Traceability Module</p>}
         <Section title="Live & Monitor" items={traceabilityItems} collapsed={collapsed} accent="text-teal-400" />

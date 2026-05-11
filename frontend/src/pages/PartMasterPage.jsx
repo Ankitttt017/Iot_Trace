@@ -95,22 +95,22 @@ const PartCard = ({ part, t }) => {
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
       aria-label={`Open ${part.description || "part"} details`}
-      className="group flex h-full min-h-[322px] cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-xl hover:shadow-slate-200/80 focus:outline-none focus:ring-4 focus:ring-teal-100"
+      className="group flex h-full min-h-[220px] cursor-pointer flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lg hover:shadow-slate-200/80 focus:outline-none focus:ring-4 focus:ring-teal-100"
     >
-      <div className="mb-3 flex aspect-[1.18] w-full items-center justify-center overflow-hidden rounded-xl bg-[linear-gradient(145deg,_#f8fafc_0%,_#eef5f4_100%)] p-4 ring-1 ring-slate-100">
-        <div className="h-full max-h-28 w-full transition-transform duration-200 group-hover:scale-105">
+      <div className="mb-2 flex aspect-[1.3] w-full items-center justify-center overflow-hidden rounded-lg bg-[linear-gradient(145deg,_#f8fafc_0%,_#eef5f4_100%)] p-2 ring-1 ring-slate-100">
+        <div className="h-full max-h-16 w-full transition-transform duration-200 group-hover:scale-105">
           <PartIllustration />
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 min-h-[2.25rem] cursor-text select-text break-words text-xs font-extrabold leading-snug text-slate-950" title={part.description || ""}>
+        <p className="line-clamp-2 min-h-[2rem] cursor-text select-text break-words text-[11px] font-extrabold leading-snug text-slate-950" title={part.description || ""}>
           {part.description || "Unnamed Part"}
         </p>
-        <p className="mt-1 cursor-text select-text truncate font-mono text-[10px] font-semibold text-slate-400" title={part.material_code}>
+        <p className="mt-0.5 cursor-text select-text truncate font-mono text-[9px] font-semibold text-slate-400" title={part.material_code}>
           {part.material_code}
         </p>
         {part.manufacturing_type && (
-          <span className="mt-2 inline-flex max-w-full truncate rounded-full bg-teal-50 px-2 py-1 text-[10px] font-bold text-teal-700">
+          <span className="mt-1.5 inline-flex max-w-full truncate rounded-full bg-teal-50 px-1.5 py-0.5 text-[9px] font-bold text-teal-700">
             {part.manufacturing_type}
           </span>
         )}
@@ -429,7 +429,7 @@ const PartMasterPage = ({ onLogout, currentUser }) => {
               <p className="text-base font-medium">{t("noPartsFound")}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
               {parts.map(part => (
                 <PartCard key={part.material_code} part={part} t={t} />
               ))}

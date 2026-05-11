@@ -41,23 +41,23 @@ const MachineCard = ({ machine, division, line }) => {
   return (
     <article
       onClick={() => navigate(`/machine/${machine.id}`)}
-      className="group cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-xl hover:shadow-slate-200/80"
+      className="group cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lg hover:shadow-slate-200/80"
     >
-      <div className="flex h-44 items-center justify-center bg-[linear-gradient(145deg,_#f8fafc_0%,_#eaf2f1_100%)] px-4 pt-4">
+      <div className="flex h-28 items-center justify-center bg-[linear-gradient(145deg,_#f8fafc_0%,_#eaf2f1_100%)] px-3 pt-3">
         <MachineSVG />
       </div>
       <div className={`h-1.5 w-full ${getStatusBar(status)}`} />
-      <div className="p-4">
-        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-extrabold leading-snug text-slate-950">
+      <div className="p-2.5">
+        <h3 className="line-clamp-2 min-h-[2rem] text-xs font-extrabold leading-snug text-slate-950">
           {safeText(machine?.name, "Unknown Machine")}
         </h3>
-        <p className="text-xs text-gray-500 mt-1 font-medium">{division || safeText(machine?.category, "Uncategorized")}</p>
-        <p className="text-xs text-gray-400 mt-0.5">{line || "—"}</p>
-        <div className="mt-4 flex items-center justify-between">
-          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${badge.bg}`}>
+        <p className="text-[10px] text-gray-500 mt-1 font-medium">{division || safeText(machine?.category, "Uncategorized")}</p>
+        <p className="text-[10px] text-gray-400 mt-0.5">{line || "—"}</p>
+        <div className="mt-3 flex items-center justify-between">
+          <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${badge.bg}`}>
             {badge.label}
           </span>
-          <span className="text-xs font-semibold text-slate-300 transition-colors group-hover:text-teal-600">View</span>
+          <span className="text-[10px] font-semibold text-slate-300 transition-colors group-hover:text-teal-600">View</span>
         </div>
       </div>
     </article>

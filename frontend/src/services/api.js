@@ -27,6 +27,7 @@ export const assignMachineOperation = (id, data) => api.put(`/machines/${id}/ope
 export const getMachineStatusHistory = (id) => api.get(`/machines/${id}/status-history`);
 export const getLines       = (params)  => api.get('/lines', { params });
 export const getLineOperations = ()     => api.get('/lines/operations/list');
+export const getRawMasterData = (params) => api.get('/lines/raw-master-data', { params });
 export const createLine     = (data)    => api.post('/lines', data);
 export const updateLine     = (id, d)   => api.put(`/lines/${id}`, d);
 export const deleteLine     = (id)      => api.delete(`/lines/${id}`);
